@@ -28,8 +28,8 @@
 
     "FST": {
       "enabled": true,
-      "t_start": 0.0001,
-      "t_ramp": 0.001,
+      "t_start": 0.0,
+      "t_ramp": 0.0001,
       "alpha": 0.3,
       "periodic_y": true,
       "periodic_z": true
