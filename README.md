@@ -401,6 +401,9 @@ This file (and its name) is more of a legacy thing from old implementations.
 It prints the phase shifts and x-component of the random unit vectors, which
 after being made divergence-free come out as `u_hat_pn1-3`.
 
+**Note:** The second column will contain zeroes if running in "reading" mode,
+(operating mode 2), simply because those random numbers cannot be accessed anymore.
+
 Two columns per line (phase shift, unused):
 ```
 -0.5235988 0.0
@@ -417,6 +420,7 @@ Two columns per line (phase shift, unused):
 
 | Error | Cause | Solution |
 |-------|-------|----------|
+| `Increase minimum total wave number!` | `k_start` too high to fit lowest wavenumber in periodic direction | Ensure `k_start` is slightly higher than $2\pi / L$, where L is the length of the periodic direction. |
 | `t_start or t_ramp is invalid!` | Invalid time parameters | Ensure `0 <= t_start < t_ramp` |
 | `Seed must be negative!` | seed >= 0 | Use negative seed (e.g., -143) |
 | `Periodicity in x is not supported` | periodic_x=true | Set `periodic_x: false` |
