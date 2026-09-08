@@ -740,9 +740,16 @@ contains
 
           read(unit,*) this%shell(i), this%k_x(i), &
                this%k_y(i), this%k_z(i), &
-               this%shell_amp( this%shell(i) ), &
+               tmp, &
                this%random_vectors(i,1), this%random_vectors(i,2), &
                this%random_vectors(i,3)
+         
+          ! Safety in case there is garbage in this%shell(i)
+          if (this%shell(i) .lt. 1 .or. this%shell(i) .gt. this%n_shells) then
+             call neko_error("Invalid shell number in fst_spectrum.csv")
+          else
+             this%shell_amp( this%shell(i) ) = tmp
+          end if
        end do
        close(unit)
 
