@@ -757,6 +757,7 @@ contains
        ! Read the phase shifts in bb.txt
        !
        fpath = trim(path) // "/bb.txt"
+       call neko_log%message("Reading " // trim(fpath))
        open(file=trim(fpath), unit=unit, status="old", action="read", iostat=ios)
        if (ios /= 0) then
           call neko_error("Error opening " // trim(fpath))
