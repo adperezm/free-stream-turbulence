@@ -7,16 +7,15 @@ This plugin implements Free-Stream Turbulence (FST) generation for use as inflow
 ## Table of Contents
 
 1. [Quick Start](#quick-start)
-2. [Overview](#overview)
-3. [Configuration Reference](#configuration-reference)
-4. [Usage](#usage)
-5. [Operating Modes](#operating-modes)
-6. [File Formats](#file-formats)
-7. [Mathematical Background](#mathematical-background)
+2. [Compilation](#compilation)
+3. [Examples](#Examples)
+4. [Mathematical Background](#mathematical-background)
+5. [Configuration reference](#configuration-reference)
+6. [Operating Modes](#operating-modes)
+7. [File Formats](#file-formats)
 8. [Troubleshooting](#troubleshooting)
-9. [Examples](#examples)
-10. [Best Practices](#best-practices)
-11. [Limitations](#limitations)
+9. [Best Practices](#best-practices)
+10. [Limitations](#limitations)
 
 ---
 
