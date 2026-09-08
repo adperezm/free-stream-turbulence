@@ -18,9 +18,9 @@ module fst_bc_driver
   character(len=LOG_SIZE) :: LOG_BUF
   ! ============================================================================
 
-  logical :: ENABLED
+  logical :: ENABLED = .false.
+  logical :: READ_FROM_FILES = .false.
   logical :: FST_GENERATED = .false.
-
 
   !
   ! For outputting the forcing as a field file
@@ -47,7 +47,7 @@ contains
 
   !> Initialize user variables or external objects
   subroutine fst_bc_driver_initialize(t, u, v, w, p, coef, params)
-    real(kind=rp) :: t
+    real(kind=dp) :: t
     type(field_t), intent(inout) :: u
     type(field_t), intent(inout) :: v
     type(field_t), intent(inout) :: w
@@ -56,10 +56,13 @@ contains
     type(json_file), intent(inout) :: params
 
     logical :: px, py, pz
-    real(kind=xp) :: x, ymin, ymax, zmin, zmax, delta_y, delta_z, Ly, Lz
+    real(kind=xp) :: ymin, ymax, zmin, zmax, delta_y, delta_z, Ly, Lz
     real(kind=xp) :: ystart, yend, zstart, zend
-    integer :: i, ierr, seed
-    real(kind=xp) :: alpha, t_ramp, t_start
+    integer :: i, ierr, n
+    real(kind=xp) :: alpha
+    alpha = 0.1
+
+    n = coef%dof%size()
 
     call json_get_or_default(params, "case.FST.enabled", ENABLED, .true.)
 
@@ -74,80 +77,82 @@ contains
 
     if (px) call neko_error("Periodicity in x is not supported yet!")
 
-    ! Compute the bounds of inlet plane for the fringe. Depending
-    ! on which one is periodic we will set a fringe or not.
-    ymin = 99.0_rp
-    ymax = -99_rp
-    zmin = 99.0_rp
-    zmax = -99.0_rp
-
-    ! Search for min and max
-    do i = 1, u%msh%mpts
-       ymin = min(ymin, u%msh%points(i)%x(2))
-       ymax = max(ymax, u%msh%points(i)%x(2))
-       zmin = min(zmin, u%msh%points(i)%x(3))
-       zmax = max(zmax, u%msh%points(i)%x(3))
-    end do
-
-    call MPI_Allreduce(MPI_IN_PLACE, ymin, 1, &
-         MPI_REAL_PRECISION, MPI_MIN, NEKO_COMM, ierr)
-    call MPI_Allreduce(MPI_IN_PLACE, ymax, 1, &
-         MPI_REAL_PRECISION, MPI_MAX, NEKO_COMM, ierr)
-    call MPI_Allreduce(MPI_IN_PLACE, zmin, 1, &
-         MPI_REAL_PRECISION, MPI_MIN, NEKO_COMM, ierr)
-    call MPI_Allreduce(MPI_IN_PLACE, zmax, 1, &
-         MPI_REAL_PRECISION, MPI_MAX, NEKO_COMM, ierr)
-
-    Ly = ymax - ymin
-    Lz = zmax - zmin
-
     ! Read parameters for the FST fringe in space
-    call json_get(params, "case.FST.alpha", alpha)
+    if (.not. py .or. .not. pz) call json_get(params, "case.FST.alpha", alpha)
 
-    ! In the periodic direction(s) there should not be any fringe. To do this
-    ! I artificially set huge min/max values so that the boundary we are applying
-    ! on is always in the region where the fringe is = 1
-    if (py) then
-       ymin = ymin - 999.0_rp*Ly
-       ymax = ymax + 999.0_rp*Ly
-       Ly = ymax - ymin
+    !
+    ! Compute bounds of the domain to set the fringes properly
+    ! Note that these values will be overridden if any of these directions
+    ! are periodic.
+    !
+    ymin = glmin(coef%dof%y, n); ymax = glmax(coef%dof%y, n)
+    zmin = glmin(coef%dof%z, n); zmax = glmax(coef%dof%z, n)
 
-       ! Below values are garbage just to initialize the values
-       delta_y = 0.0001_rp*Ly
-       ystart = ymin + delta_y
-       yend = ymax - delta_y
-    else
-       call json_get_or_default(params, "case.FST.ystart", ystart, ymin)
-       call json_get_or_default(params, "case.FST.yend", yend, ymax)
-       delta_y = alpha*Ly
-    end if
+    call json_get_or_default(params, "case.FST.ystart", ystart, ymin)
+    call json_get_or_default(params, "case.FST.yend", yend, ymax)
+    delta_y = alpha * (ymax - ymin)
 
-    if (pz) then
-       zmin = zmin - 999.0_rp*Lz
-       zmax = zmax + 999.0_rp*Lz
-       Lz = zmax - zmin
-       delta_z = 0.0001_rp*Lz
-       zstart = zmin + delta_z
-       zend = zmax - delta_z
-    else
-       call json_get_or_default(params, "case.FST.zstart", zstart, zmin)
-       call json_get_or_default(params, "case.FST.zend", zend, zmax)
-       delta_z = alpha * Lz
-    end if
+    call json_get_or_default(params, "case.FST.zstart", zstart, zmin)
+    call json_get_or_default(params, "case.FST.zend", zend, zmax)
+    delta_z = alpha * (zmax - zmin)
 
-    ! Read parameters for the FST fringe in time
-    call json_get(params, "case.FST.t_ramp", t_ramp)
-    call json_get_or_default(params, "case.FST.t_start", t_start, 0.0_rp)
+    !
+    ! Read all FST parameters
+    !
+    block
+      real(kind=xp) :: Uinf, Tu, L, k_start, k_end
+      real(kind=dp) :: t_ramp, t_start
+      integer :: Nshells, Npmax, seed
+      character(len=:), allocatable :: read_path
 
-    call json_get_or_default(params, "case.FST.seed", seed, -143)
+      logical :: found_fst_config
+      call json_get_or_default(params, "case.FST.read_from_files", &
+        READ_FROM_FILES, .false.)
 
-    ! Initialize the fst parameters
-    call FST_OBJ%init_bc(zmin, zmax, zstart, zend, &
-         delta_z, delta_z, &
-         ymin, ymax, ystart, yend, &
-         delta_y, delta_y, &
-         t_start, t_ramp, &
-         px, py, pz, seed)
+      ! Read parameters for the FST fringe in time
+      call json_get_or_default(params, "case.FST.t_start", t_start, 0.0_dp)
+      call json_get(params, "case.FST.t_ramp", t_ramp)
+
+      if (READ_FROM_FILES) then
+
+        call json_get(params, "case.FST.read_files_path", read_path)
+
+        if (params%valid_path("case.FST.Uinf")) then
+
+          call json_get(params, "case.FST.Uinf", Uinf)
+          call FST_OBJ%init_bc(read_path, px, py, pz, zmin, zmax, zstart, zend, delta_z, delta_z, &
+            ymin, ymax, ystart, yend, delta_y, delta_y, &
+            t_start, t_ramp, Uinf=Uinf)
+
+        else
+
+          call FST_OBJ%init_bc(read_path, px, py, pz, zmin, zmax, zstart, zend, delta_z, delta_z, &
+            ymin, ymax, ystart, yend, delta_y, delta_y, &
+            t_start, t_ramp)
+        end if
+
+      else
+
+        call json_get_or_default(params, "case.FST.seed", seed, -143)
+        if (seed .ge. 0) call neko_error("Seed must be negative!")
+
+        call json_get(params, "case.FST.Uinf", Uinf)
+        call json_get(params, "case.FST.Tu", Tu)
+        call json_get(params, "case.FST.L", L)
+        call json_get(params, "case.FST.k_start", k_start)
+        call json_get(params, "case.FST.k_end", k_end)
+        call json_get(params, "case.FST.n_shells", Nshells)
+        call json_get(params, "case.FST.n_pts_per_shell", Npmax)
+
+        call FST_OBJ%init_bc(Uinf, Tu, L, k_start, k_end, Nshells, Npmax, &
+          px, py, pz, zmin, zmax, zstart, zend, delta_z, delta_z, &
+          ymin, ymax, ystart, yend, delta_y, delta_y, &
+          t_start, t_ramp, &
+          seed)
+
+      end if
+
+    end block
 
     call json_get_or_default(params, 'case.FST.files_output_path', PATH, &
          "./FST_output_files")
@@ -161,9 +166,9 @@ contains
     type(field_t), intent(inout) :: w
     class(bc_t), intent(in) :: bc
     type(coef_t), intent(inout) :: coef
-    real(kind=rp), intent(in) :: t
+    real(kind=dp), intent(in) :: t
     integer, intent(in) :: tstep
-    real(kind=rp), intent(in) :: angle
+    real(kind=xp), intent(in) :: angle
     logical, intent(in), optional :: on_cpu
 
     integer :: i, idx
@@ -175,7 +180,8 @@ contains
     ! on the boundry mask!
     !
     if (.not. FST_GENERATED) then
-       call FST_obj%generate_bc(coef, bc%msk, bc%msk(0), u, v, w, PATH)
+       call FST_obj%generate_bc(coef%dof%x, coef%dof%y, coef%dof%z, &
+         bc%msk, bc%msk(0), u, v, w, PATH, coef%msh%gdim, READ_FROM_FILES)
        FST_GENERATED = .true.
     end if
 
