@@ -3,7 +3,7 @@
   "case":
   {
     "mesh_file": "box.nmsh",
-    "output_directory": "results_master",
+    "output_directory": "results_master_test",
     "output_at_end": true,
     "output_precision": "double",
     "output_checkpoints": false,
@@ -12,7 +12,7 @@
     "checkpoint_control": "simulationtime",
     "checkpoint_value": 1.0,
     "runtime_statistics": {
-      "enabled": false
+      "enabled": true
     },
     "time": {
       "end_time": 0.5e-2,
@@ -34,7 +34,9 @@
       "alpha": 0.3,
       "files_output_path": "fst_allocated",
       "periodic_y": true,
-      "files_output_path": "fst_master",
+      "read_from_files": true,
+      "read_files_path": "fst_xp_dp_cpu", 
+      "files_output_path": "fst_master_test",
       "periodic_z": true
     },
 
