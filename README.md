@@ -461,7 +461,7 @@ on 32 bits.
 
 ## References
 
-- Schlatter, P. (2001). *Spectral simulation of turbulent flow in a channel with inlet turbulence*. PhD thesis, KTH Royal Institute of Technology.
+- Schlatter, P. (2001). *Spectral simulation of turbulent flow in a channel with inlet turbulence*. Masters' thesis, KTH Royal Institute of Technology.
 - Original implementation by Elektra Kluesberg, Prabal Negi, and Philipp Schlatter.
 
 ---
