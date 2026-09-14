@@ -156,7 +156,7 @@ contains
 
     call json_get_or_default(params, 'case.FST.files_output_path', PATH, &
          "./FST_output_files")
-    call system("mkdir -p " // trim(PATH))
+    call execute_command_line("mkdir -p " // trim(PATH))
 
   end subroutine fst_bc_driver_initialize
 
