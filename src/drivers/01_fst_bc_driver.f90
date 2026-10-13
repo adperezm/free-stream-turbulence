@@ -85,8 +85,8 @@ contains
     ! Note that these values will be overridden if any of these directions
     ! are periodic.
     !
-    ymin = glmin(coef%dof%y, n); ymax = glmax(coef%dof%y, n)
-    zmin = glmin(coef%dof%z, n); zmax = glmax(coef%dof%z, n)
+    ymin = glmin(coef%dof%y%x, n); ymax = glmax(coef%dof%y%x, n)
+    zmin = glmin(coef%dof%z%x, n); zmax = glmax(coef%dof%z%x, n)
 
     call json_get_or_default(params, "case.FST.ystart", ystart, ymin)
     call json_get_or_default(params, "case.FST.yend", yend, ymax)
@@ -186,7 +186,7 @@ contains
     ! on the boundry mask!
     !
     if (.not. FST_GENERATED) then
-       call FST_obj%generate_bc(coef%dof%x, coef%dof%y, coef%dof%z, &
+       call FST_obj%generate_bc(coef%dof%x%x, coef%dof%y%x, coef%dof%z%x, &
          bc%msk, bc%msk(0), u, v, w, PATH, coef%msh%gdim, READ_FROM_FILES)
        FST_GENERATED = .true.
     end if
@@ -196,7 +196,7 @@ contains
     ! NOTE: if on_cpu is true, memory is not copied to the GPU (you need
     ! to do it yourself)
     call FST_obj%apply_BC(bc%msk, bc%msk(0), &
-         u%dof%x, u%dof%y, u%dof%z, t, u%x, v%x, w%x, angle, on_cpu)
+         u%dof%x%x, u%dof%y%x, u%dof%z%x, t, u%x, v%x, w%x, angle, on_cpu)
 
     ! If we compute on cpu, copy memory. This is slower!
     if (NEKO_BCKND_DEVICE .eq. 1 .and. on_cpu) then

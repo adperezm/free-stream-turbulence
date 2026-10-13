@@ -897,9 +897,9 @@ contains
     ! Initialize the fringe in space
     do idx = 1, zone%size
        i = mask(idx)
-       x = coef%dof%x(i,1,1,1)
-       y = coef%dof%y(i,1,1,1)
-       z = coef%dof%z(i,1,1,1)
+       x = coef%dof%x%x(i,1,1,1)
+       y = coef%dof%y%x(i,1,1,1)
+       z = coef%dof%z%x(i,1,1,1)
 
        if ( x .lt. this%xmin .or. x .gt. this%xmax .or. &
             y .lt. this%ymin .or. y .gt. this%ymax ) then
